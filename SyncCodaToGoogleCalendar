@@ -1,0 +1,158 @@
+//NOTE : Configure first.
+
+CodaAPI.authenticate('CODA API TOKEN');// Replace with your CODA token.
+GOOGLE_CALENDAR_EMAIL = '';
+GOOGLE_CALENDAR_NAME = '';
+GOOGLE_CALENDAR_ID = '';
+CODA_DOC_ID = '';
+CODA_TABLE_ID_1 = ''; //AHJ Cycle Adoptions Data Per Publication
+
+START_DATE = '1/1/1800 00:00 AM';
+END_DATE = '12/31/3000 00:00 PM';
+CALENDAR_TABLE_NAME_2 = '';
+
+
+function createCalendarEvents(){ 
+  
+  let adoptionCalendar = CalendarApp.getCalendarById(GOOGLE_CALENDAR_ID);
+
+  //Deletes existing calendar events.
+  startDate = new Date(1800,1,1,0,0,0);
+  nowDate = new Date();
+  nowYear = nowDate.getFullYear();
+  nowMonth = nowDate.getMonth();
+  nowDay = nowDate.getDate();
+  endDate = new Date(nowYear + 100, nowMonth, nowDay);
+  var events = adoptionCalendar.getEvents(startDate, endDate);
+  console.log('Deleting existing calendar events...');
+  for(var i=0; i<events.length;i++){
+    var ev = events[i];   
+    ev.deleteEvent();
+  }
+  console.log('Done deleting existing calendar events.');
+  console.log('Creating calendar events...');
+   
+  var rows = CodaAPI.listRows(CODA_DOC_ID , CODA_TABLE_ID_1).items;    
+  for(var i=0; i<rows.length;i++){                     
+    let myValues = Object.values(rows[i].values);                   
+    Utilities.sleep(1000);
+    if(myValues[1]!= 'NULL'){                     
+      adoptionCalendar.createEvent(myValues[0] + ' ' + myValues[4] , new Date(myValues[3] +' 00:00:00 GMT-7'), new Date(myValues[3] + ' 23:59:59 GMT-7'));     
+      if(doesEventNotExist(myValues[0], myValues[5])){  
+        adoptionCalendar.createEvent(myValues[0]  , new Date(myValues[5] +' 00:00:00 GMT-7'), new Date(myValues[5] + ' 23:59:59 GMT-7'));
+      }
+    }else{       
+      if(doesEventNotExist(myValues[0], myValues[5])){            
+        adoptionCalendar.createEvent(myValues[0]  , new Date(myValues[5] +' 00:00:00 GMT-7'), new Date(myValues[5] + ' 23:59:59 GMT-7'));
+      }
+
+    }
+  }
+  console.log('Done creating calendar events...');
+  
+}
+
+function doesEventNotExist(event_name, event_date){
+
+  let adoptionCalendar = CalendarApp.getCalendarById(GOOGLE_CALENDAR_ID);
+
+  //Deletes existing calendar events.
+  startDate = new Date(1800,1,1,0,0,0);
+  nowDate = new Date();
+  nowYear = nowDate.getFullYear();
+  nowMonth = nowDate.getMonth();
+  nowDay = nowDate.getDate();
+  endDate = new Date(nowYear + 100, nowMonth, nowDay);
+  var events = adoptionCalendar.getEvents(startDate, endDate);
+  for(var i=0; i<events.length;i++){   
+    var ev = events[i]; 
+    temp_date = convertDateFormat(ev.getStartTime().toString());      
+    if (event_name == ev.getTitle() && (event_date == temp_date)){  //should add another comparison   
+      //console.log('Duplicate.');   
+      return false;
+    }
+  }
+  //console.log('Not duplicate.'); 
+  return true;
+}
+
+//Convert date format
+function convertDateFormat(temp_date){
+
+  temp_date = temp_date.slice(4,15);  
+  temp_month = temp_date.slice(0, 3);
+
+  switch(temp_month){
+    case 'Jan':
+      temp_month = 1;
+      break;
+    case 'Feb':
+      temp_month = 2;
+      break;
+    case 'Mar':
+      temp_month = 3;
+      break;
+    case 'Apr':
+      temp_month = 4;
+      break;
+    case 'May':
+      temp_month = 5;
+      break;
+    case 'Jun':
+      temp_month = 6;
+      break;
+    case 'Jul':
+      temp_month = 7;
+      break;
+    case 'Aug':
+      temp_month = 8;
+      break;
+    case 'Sep':
+      temp_month = 9;
+      break;
+    case 'Oct':
+      temp_month = 10;
+      break;
+    case 'Nov':
+      temp_month = 11;
+      break;
+    case 'Dec':
+      temp_month = 12;
+      break;
+  } 
+  temp_day = temp_date.slice(4, 6);
+
+  switch(temp_day){
+    case '01':
+      temp_day = 1;
+      break;
+    case '02':
+      temp_day = 2;
+      break;
+    case '03':
+      temp_day = 3;
+      break;
+    case '04':
+      temp_day = 4;
+      break;
+    case '05':
+      temp_day = 5;
+      break;
+    case '06':
+      temp_day = 6;
+      break;
+    case '07':
+      temp_day = 7;
+      break;
+    case '08':
+      temp_day = 8;
+      break;
+    case '09':
+      temp_day = 9;
+      break;     
+  }
+
+  temp_year = temp_date.slice(7, 11);  
+  return temp_date = temp_month + '/' + temp_day + '/' + temp_year;
+  
+}
