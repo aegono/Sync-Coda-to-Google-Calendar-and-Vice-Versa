@@ -1,0 +1,137 @@
+//NOTE : Configure first
+
+CodaAPI.authenticate('');// Replace with your CODA token.
+GOOGLE_CALENDAR_EMAIL = '';
+GOOGLE_CALENDAR_NAME = '';
+GOOGLE_CALENDAR_ID = '';
+CODA_DOC_ID = '';
+CODA_TABLE_ID_1 = ''; 
+
+START_DATE = '1/1/1800 00:00 AM';
+END_DATE = '12/31/3000 00:00 PM';
+CALENDAR_TABLE_NAME_2 = '';
+
+//Part II
+function syncGoogleCalendarEvents() {
+
+  console.log('Syncing calendar events to Coda...');  
+
+  // Get calendar data from Google Calendar.  
+  var adoptionCalendar = CalendarApp.getCalendarById(GOOGLE_CALENDAR_ID);
+  var events = adoptionCalendar.getEvents(new Date('1/1/1800 00:00 AM'), new Date('12/31/3000 00:00 PM'));
+  
+  //Construct rows to upsert into Coda
+  var rows = [];
+  for (var i=0; i<events.length;i++){
+    
+    var event_name = events[i].getTitle();
+    var event_date = events[i].getStartTime();    
+    event_date = formatEventDate(event_date.toString());
+    //console.log(event_date);
+   
+    var row = {
+      'cells': [
+        {'column': 'Jurisdiction', 'value': event_name},
+        {'column': 'Future Effective Date', 'value': event_date},
+      ]       
+    };
+    rows.push(row);
+  
+    // Upsert rows into Coda. Send them in chunks of 100 events at most to avoid a "Request too large" error.
+    for (var rowsChunk of chunkArray(rows, 100)) {      
+      Utilities.sleep(1000);   
+      CodaAPI.upsertRows(CODA_DOC_ID, CALENDAR_TABLE_NAME_2, {rows: rowsChunk, keyColumns: ['Jurisdiction']});
+    }
+  }
+  Logger.log('Done upserting %s rows.', events.length);  
+}
+
+
+function formatEventDate(event_date){
+  temp_month = event_date.slice(4,7);
+  temp_day = event_date.slice(8,10);
+  temp_year = event_date.slice(11,15);
+
+  switch(temp_month){
+    case 'Jan':
+      temp_month = 1;
+      break;
+    case 'Feb':
+      temp_month = 2;
+      break;
+    case 'Mar':
+      temp_month = 3;
+      break;
+    case 'Apr':
+      temp_month = 4;
+      break;
+    case 'May':
+      temp_month = 5;
+      break;
+    case 'Jun':
+      temp_month = 6;
+      break;
+    case 'Jul':
+      temp_month = 7;
+      break;
+    case 'Aug':
+      temp_month = 8;
+      break;
+    case 'Sep':
+      temp_month = 9;
+      break;
+    case 'Oct':
+      temp_month = 10;
+      break;
+    case 'Nov':
+      temp_month = 11;
+      break;
+    case 'Dec':
+      temp_month = 12;
+      break;
+  }
+
+  switch(temp_day){
+    case '01':
+      temp_day = 1;
+      break;
+    case '02':
+      temp_day = 2;
+      break;
+    case '03':
+      temp_day = 3;
+      break;
+    case '04':
+      temp_day = 4;
+      break;
+    case '05':
+      temp_day = 5;
+      break;
+    case '06':
+      temp_day = 6;
+      break;
+    case '07':
+      temp_day = 7;
+      break;
+    case '08':
+      temp_day = 8;
+      break;
+    case '09':
+      temp_day = 9;
+      break;     
+  }  
+  return temp_month + '/' + temp_day + '/' + temp_year; 
+}
+
+/** Breaks up the array into smaller arrays of at most `chunkSize` length. */
+function chunkArray(array, chunkSize) {
+  var output = [];
+  for (var i = 0; i < array.length; i += chunkSize) {    
+    output.push(array.slice(i, i + chunkSize));
+  }
+  return output;
+}
+
+
+
+
