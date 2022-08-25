@@ -1,80 +1,105 @@
-//NOTE : Configure first.
+CodaAPI.authenticate('5d9baaa1-c8b2-472e-abe7-bc88ba6c6a41');// Replace with your CODA token.
+const PAGE_SIZE = 100;
 
-CodaAPI.authenticate('CODA API TOKEN');// Replace with your CODA token.
+//Configure as needed below.
+
 GOOGLE_CALENDAR_EMAIL = '';
 GOOGLE_CALENDAR_NAME = '';
 GOOGLE_CALENDAR_ID = '';
+
 CODA_DOC_ID = '';
 CODA_TABLE_ID_1 = ''; //AHJ Cycle Adoptions Data Per Publication
 
 START_DATE = '1/1/1800 00:00 AM';
 END_DATE = '12/31/3000 00:00 PM';
-CALENDAR_TABLE_NAME_2 = '';
-
+CALENDAR_TABLE_NAME_2 = 'Future Effective Dates';
+var myValues;
 
 function createCalendarEvents(){ 
   
   let adoptionCalendar = CalendarApp.getCalendarById(GOOGLE_CALENDAR_ID);
 
-  //Deletes existing calendar events.
+  //Fetching existing calendar events.
+  console.log('Fetching previous calendar events...');
   startDate = new Date(1800,1,1,0,0,0);
   nowDate = new Date();
   nowYear = nowDate.getFullYear();
   nowMonth = nowDate.getMonth();
   nowDay = nowDate.getDate();
   endDate = new Date(nowYear + 100, nowMonth, nowDay);
-  var events = adoptionCalendar.getEvents(startDate, endDate);
-  console.log('Deleting existing calendar events...');
+  var events = adoptionCalendar.getEvents(startDate, endDate);  
+  console.log('Fetching ' + events.length + ' existing calendar events...');
+  let events_array = [];
   for(var i=0; i<events.length;i++){
-    var ev = events[i];   
-    ev.deleteEvent();
-  }
-  console.log('Done deleting existing calendar events.');
-  console.log('Creating calendar events...');
-   
-  var rows = CodaAPI.listRows(CODA_DOC_ID , CODA_TABLE_ID_1).items;    
-  for(var i=0; i<rows.length;i++){                     
-    let myValues = Object.values(rows[i].values);                   
-    Utilities.sleep(1000);
-    if(myValues[1]!= 'NULL'){                     
-      adoptionCalendar.createEvent(myValues[0] + ' ' + myValues[4] , new Date(myValues[3] +' 00:00:00 GMT-7'), new Date(myValues[3] + ' 23:59:59 GMT-7'));     
-      if(doesEventNotExist(myValues[0], myValues[5])){  
-        adoptionCalendar.createEvent(myValues[0]  , new Date(myValues[5] +' 00:00:00 GMT-7'), new Date(myValues[5] + ' 23:59:59 GMT-7'));
-      }
-    }else{       
-      if(doesEventNotExist(myValues[0], myValues[5])){            
-        adoptionCalendar.createEvent(myValues[0]  , new Date(myValues[5] +' 00:00:00 GMT-7'), new Date(myValues[5] + ' 23:59:59 GMT-7'));
-      }
-
-    }
-  }
-  console.log('Done creating calendar events...');
-  
-}
-
-function doesEventNotExist(event_name, event_date){
-
-  let adoptionCalendar = CalendarApp.getCalendarById(GOOGLE_CALENDAR_ID);
-
-  //Deletes existing calendar events.
-  startDate = new Date(1800,1,1,0,0,0);
-  nowDate = new Date();
-  nowYear = nowDate.getFullYear();
-  nowMonth = nowDate.getMonth();
-  nowDay = nowDate.getDate();
-  endDate = new Date(nowYear + 100, nowMonth, nowDay);
-  var events = adoptionCalendar.getEvents(startDate, endDate);
-  for(var i=0; i<events.length;i++){   
     var ev = events[i]; 
-    temp_date = convertDateFormat(ev.getStartTime().toString());      
-    if (event_name == ev.getTitle() && (event_date == temp_date)){  //should add another comparison   
-      //console.log('Duplicate.');   
-      return false;
+    events_array[i] = [i, ev.getTitle(), convertDateFormat(ev.getStartTime().toString()), 'Old'];  
+  }
+ 
+  console.log('Fetching CODA events...');  
+  var pageToken = "";
+  var rows = [];
+  do{ 
+    response = CodaAPI.listRows(CODA_DOC_ID , CODA_TABLE_ID_1,{pageToken: pageToken, limit: PAGE_SIZE, useColumnNames: true});    
+    rows = rows.concat(response.items);
+    pageToken = response.nextPageToken;
+  }while(pageToken);
+
+  console.log('Creating calendar ' + rows.length  + ' events...');
+  for(var i=0; i<rows.length;i++){                     
+    myValues = Object.values(rows[i].values);                         
+    if(myValues[1]!= 'NULL'){
+
+      myValues[7] = true;
+      existing = events_array.findIndex(doesExist);        
+      if( existing < 0){        
+        adoptionCalendar.createEvent(myValues[0] + ' ' + myValues[4] , new Date(myValues[3] +' 00:00:00 GMT-7'), new Date(myValues[3] + ' 23:59:59 GMT-7'));        
+        events_array[events_array.length] = ['Newly Added', myValues[0] + ' ' + myValues[4], myValues[3], 'New'];
+      }else{        
+        events_array[existing][3] = 'New';        
+      }
+
+      myValues[7] = false;  
+      existing = events_array.findIndex(doesExist); 
+      if(existing < 0){        
+        adoptionCalendar.createEvent(myValues[0]  , new Date(myValues[5] +' 00:00:00 GMT-7'), new Date(myValues[5] + ' 23:59:59 GMT-7'));        
+        events_array[events_array.length] = ['Newly Added', myValues[0],  myValues[5], 'New'];      
+      }else{       
+        events_array[existing][3] = 'New';      
+      }
+    }else{ 
+      myValues[7] = false; 
+      existing = events_array.findIndex(doesExist);  
+
+      if(existing < 0){                 
+        adoptionCalendar.createEvent(myValues[0]  , new Date(myValues[5] +' 00:00:00 GMT-7'), new Date(myValues[5] + ' 23:59:59 GMT-7'));        
+        events_array[events_array.length] = ['Newly Added', myValues[0],  myValues[5], 'New'];      
+      }else{               
+        events_array[existing][3] = 'New';       
+      }
     }
   }
-  //console.log('Not duplicate.'); 
-  return true;
+   
+  //Remove deleted events from the calendar.
+  console.log('Removing deleted calendar events...');
+  for(var i=0; i<events_array.length;i++){      
+    if(events_array[i][3] == 'Old'){      
+      events[events_array[i][0]].deleteEvent();      
+    }
+  }
+  
+  var events1 = adoptionCalendar.getEvents(startDate, endDate); 
+  console.log('Synced ' + events1.length + 'unique calendar events from CODA.');
 }
+
+//Identifies whether the calendar event is already synced.
+function doesExist(i){
+  if(myValues[7]){  
+    return (i[1] === (myValues[0] + ' ' + myValues[4])) && i[2] === myValues[3];
+  }else{
+    return (i[1] === myValues[0]) && (i[2] === myValues[5]);
+  }
+}
+
 
 //Convert date format
 function convertDateFormat(temp_date){
