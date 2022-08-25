@@ -11,7 +11,6 @@ START_DATE = '1/1/1800 00:00 AM';
 END_DATE = '12/31/3000 00:00 PM';
 CALENDAR_TABLE_NAME_2 = '';
 
-//Part II
 function syncGoogleCalendarEvents() {
 
   console.log('Syncing calendar events to Coda...');  
@@ -37,11 +36,11 @@ function syncGoogleCalendarEvents() {
     };
     rows.push(row);
   
-    // Upsert rows into Coda. Send them in chunks of 100 events at most to avoid a "Request too large" error.
-    for (var rowsChunk of chunkArray(rows, 100)) {      
-      Utilities.sleep(1000);   
-      CodaAPI.upsertRows(CODA_DOC_ID, CALENDAR_TABLE_NAME_2, {rows: rowsChunk, keyColumns: ['Jurisdiction']});
-    }
+    
+  }
+  // Upsert rows into Coda. Send them in chunks of 100 events at most to avoid a "Request too large" error.
+  for (var rowsChunk of chunkArray(rows, 100)) {      
+    CodaAPI.upsertRows(CODA_DOC_ID, CALENDAR_TABLE_NAME_2, {rows: rowsChunk, keyColumns: ['Jurisdiction']});
   }
   Logger.log('Done upserting %s rows.', events.length);  
 }
